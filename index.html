@@ -5,66 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>都バス運行情報 - 山吹町</title>
     <style>
+        :root { --toei-green: #006400; --kintetsu-orange: #f39c12; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
-        .header-nav { width: 100%; display: flex; padding: 10px; gap: 10px; background: #f8f8f8; border-bottom: 1px solid #ddd; justify-content: center; }
-        .nav-item { border: 1px solid #ccc; padding: 5px 15px; border-radius: 5px; font-size: 0.8rem; background: #fff; }
         
-        .main-display { text-align: center; margin-top: 30px; width: 90%; }
-        .stop-name { font-size: 1.2rem; color: #888; margin-bottom: 5px; }
-        .eta-label { color: #888; font-size: 0.9rem; margin-bottom: 5px; }
-        .eta-main { font-size: 5.5rem; font-weight: bold; line-height: 1; color: #333; }
-        .eta-unit { font-size: 1.8rem; }
+        /* 上部：方面切り替えタブ */
+        .tab-container { width: 100%; display: flex; background: #f8f8f8; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 100; }
+        .tab { flex: 1; padding: 15px 5px; text-align: center; font-size: 0.85rem; font-weight: bold; color: #888; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tab.active { color: var(--kintetsu-orange); border-bottom-color: var(--kintetsu-orange); background: #fff; }
 
-        /* 行き先切り替えボタン */
-        .selector-container { display: flex; gap: 10px; margin: 20px 0; width: 90%; justify-content: center; }
-        .dest-btn { flex: 1; padding: 10px; border-radius: 25px; border: 2px solid #f39c12; background: #fff; color: #f39c12; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
-        .dest-btn.active { background: #f39c12; color: #fff; }
+        /* メイン表示部 */
+        .main-display { text-align: center; padding: 40px 20px; width: 100%; box-sizing: border-box; }
+        .current-dest-name { font-size: 1.8rem; font-weight: bold; margin-bottom: 5px; }
+        .eta-label { color: #888; font-size: 1rem; margin-bottom: 10px; }
+        .eta-main { font-size: 7rem; font-weight: bold; line-height: 1; color: #333; letter-spacing: -2px; }
+        .eta-unit { font-size: 2rem; margin-left: 5px; }
 
-        .list-container { width: 90%; max-width: 400px; }
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 12px; margin-bottom: 8px; background: #fcfcfc; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #ddd; }
-        .list-item.active { border-left-color: #f39c12; }
+        /* 次便リスト */
+        .list-container { width: 92%; max-width: 450px; margin-bottom: 100px; }
+        .list-item { display: flex; align-items: center; padding: 18px; border-radius: 16px; margin-bottom: 12px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-left: 6px solid #eee; }
+        .list-item.next { border-left-color: var(--kintetsu-orange); }
+        .list-label { font-size: 0.75rem; color: #999; width: 45px; font-weight: bold; }
+        .list-desc { font-weight: bold; flex-grow: 1; font-size: 1rem; }
+        .list-time { font-weight: bold; font-size: 1.2rem; color: #333; }
+
+        /* 下部広告：都バス公式風 */
+        .ad-banner { position: fixed; bottom: 0; width: 100%; background: #fff; border-top: 1px solid #eee; padding: 15px; display: flex; align-items: center; gap: 15px; box-sizing: border-box; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        .ad-icon { background: var(--toei-green); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; }
+        .ad-text { text-align: left; font-size: 0.85rem; flex-grow: 1; }
+        .ad-text b { color: var(--toei-green); display: block; margin-bottom: 2px; }
+        .ad-btn { background: var(--toei-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.8rem; }
         
-        .list-label { color: #aaa; font-size: 0.7rem; width: 45px; }
-        .list-desc { font-weight: bold; flex-grow: 1; text-align: left; padding-left: 10px; font-size: 0.9rem; }
-        .list-time { font-weight: bold; font-size: 1rem; }
-
-        /* 広告バナー */
-        .ad-banner { position: fixed; bottom: 0; width: 100%; background: #fff; border-top: 1px solid #eee; padding: 12px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; }
-        .ad-icon { background: #006400; color: white; width: 45px; height: 45px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; }
-        .ad-text { text-align: left; font-size: 0.8rem; flex-grow: 1; line-height: 1.3; }
-        .ad-text b { color: #006400; display: block; font-size: 0.85rem; }
-        .ad-btn { background: #006400; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.75rem; }
+        /* 非表示制御 */
+        .content-group { display: none; width: 100%; flex-direction: column; align-items: center; }
+        .content-group.active { display: flex; }
     </style>
 </head>
 <body>
 
-    <div class="header-nav">
-        <div class="nav-item">都営バス</div>
-        <div class="nav-item">山吹町</div>
+    <div class="tab-container">
+        <div class="tab active" onclick="switchTab('shinjuku')">新宿駅西口 方面</div>
+        <div class="tab" onclick="switchTab('kudan')">飯田橋・九段下 方面</div>
     </div>
 
-    <div class="selector-container">
-        <button class="dest-btn active" onclick="switchDest('shinjuku')">新宿駅西口 方面</button>
-        <button class="dest-btn" onclick="switchDest('kudan')">飯田橋・九段下 方面</button>
-    </div>
-
-    <div class="main-display">
-        <div class="stop-name">山吹町</div>
-        <div id="target-dest" style="font-weight:bold; font-size:1.3rem; margin-bottom:10px;">白61：新宿駅西口 行</div>
-        <div class="eta-label">発車まで あと</div>
-        <div class="eta-main" id="main-eta">--<span class="eta-unit">分</span></div>
-    </div>
-
-    <div class="list-container" style="margin-top:20px;">
-        <div class="list-item active">
-            <div class="list-label">次便</div>
-            <div class="list-desc" id="bus1-desc">新宿駅西口 行</div>
-            <div class="list-time" id="bus1-time">--分</div>
+    <div id="shinjuku-content" class="content-group active">
+        <div class="main-display">
+            <div class="current-dest-name">新宿駅西口 行</div>
+            <div class="eta-label">発車まで あと</div>
+            <div class="eta-main">05<span class="eta-unit">分</span></div>
         </div>
-        <div class="list-item">
-            <div class="list-label">次々便</div>
-            <div class="list-desc" id="bus2-desc">新宿駅西口 行</div>
-            <div class="list-time" id="bus2-time">--分</div>
+        <div class="list-container">
+            <div class="list-item next">
+                <div class="list-label">次便</div>
+                <div class="list-desc">白61系統</div>
+                <div class="list-time">約 5分後</div>
+            </div>
+            <div class="list-item">
+                <div class="list-label">次々便</div>
+                <div class="list-desc">白61系統</div>
+                <div class="list-time">約 17分後</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="kudan-content" class="content-group">
+        <div class="main-display">
+            <div class="current-dest-name">九段下 行</div>
+            <div class="eta-label">発車まで あと</div>
+            <div class="eta-main">08<span class="eta-unit">分</span></div>
+        </div>
+        <div class="list-container">
+            <div class="list-item next">
+                <div class="list-label">次便</div>
+                <div class="list-desc">飯64系統</div>
+                <div class="list-time">約 8分後</div>
+            </div>
+            <div class="list-item">
+                <div class="list-label">次々便</div>
+                <div class="list-desc">飯64系統</div>
+                <div class="list-time">約 20分後</div>
+            </div>
         </div>
     </div>
 
@@ -72,23 +91,22 @@
         <div class="ad-icon">都</div>
         <div class="ad-text">
             <b>都バス運行情報サービス</b>
-            リアルタイムな運行状況や停留所の<br>詳しい位置を確認できます。
+            tobus.jp で全系統のリアルタイムな<br>接近情報をチェックできます。
         </div>
         <a href="https://tobus.jp/blsys/t_mbl/busstop/map?ds=1&id=1355&p=1" target="_blank" class="ad-btn">開く</a>
     </div>
 
     <script>
-        function switchDest(dest) {
-            const btns = document.querySelectorAll('.dest-btn');
-            btns.forEach(b => b.classList.remove('active'));
-            if(dest === 'shinjuku') {
-                btns[0].classList.add('active');
-                document.getElementById('target-dest').innerText = '白61：新宿駅西口 行';
-                // 本来はここでデータを切り替えます
-            } else {
-                btns[1].classList.add('active');
-                document.getElementById('target-dest').innerText = '飯64：九段下 行';
-            }
+        function switchTab(dest) {
+            // タブの切り替え
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // コンテンツの切り替え
+            const groups = document.querySelectorAll('.content-group');
+            groups.forEach(g => g.classList.remove('active'));
+            document.getElementById(dest + '-content').classList.add('active');
         }
     </script>
 </body>
