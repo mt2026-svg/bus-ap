@@ -2,32 +2,41 @@ const fs = require('fs');
 
 async function fetchBusData() {
     const token = process.env.ODPT_ACCESS_TOKEN;
-    // 1: 新宿方面, 2: 飯田橋方面
-    const urls = [
-        `https://api.odpt.org/api/v4/odpt:BusArrivalPredict?odpt:operator=odpt.Operator:Toei&odpt:busstopPole=odpt.BusstopPole:Toei.Yamabukicho.1355.1&acl:consumerKey=${token}`,
-        `https://api.odpt.org/api/v4/odpt:BusArrivalPredict?odpt:operator=odpt.Operator:Toei&odpt:busstopPole=odpt.BusstopPole:Toei.Yamabukicho.1355.2&acl:consumerKey=${token}`
-    ];
+    const url = `https://api.odpt.org/api/v4/odpt:BusArrivalPredict?odpt:operator=odpt.Operator:Toei&odpt:busstopPole=odpt.BusstopPole:Toei.Yamabukicho.1355.1&acl:consumerKey=${token}`;
 
     try {
+        const response = await fetch(url);
+        const data = await response.json();
         let html = fs.readFileSync('index.html', 'utf8');
 
-        // デモ用としてHTMLの初期状態を書き換える処理
-        // (本来はフロント側のJavaScriptでデータを動的に入れ替えますが、
-        //  まずは「新宿方面」の最新データを埋め込みます)
-        
-        const response = await fetch(urls[0]);
-        const data = await response.json();
-        
-        if (data.length > 0) {
-            const min1 = Math.floor(Math.random() * 10) + 1; // デモ用
-            const min2 = min1 + 12;
-            html = html.replace('--<span class="eta-unit">分</span>', `${min1}<span class="eta-unit">分</span>`);
-            html = html.replace('id="bus1-time">--分', `id="bus1-time">${min1}分`);
-            html = html.replace('id="bus2-time">--分', `id="bus2-time">${min2}分`);
+        if (data && data.length > 0) {
+            // 次便のデータ処理
+            const bus1 = data[0];
+            const totalSec1 = bus1['odpt:delay'] || 0; 
+            const min1 = Math.floor(totalSec1 / 60);
+            const sec1 = totalSec1 % 60;
+
+            // HTML内のデモ数字を本物のデータに置換
+            // ※04分44秒の部分を、取得したmin1, sec1で書き換えます
+            html = html.replace('id="min">04', `id="min">${String(min1).padStart(2, '0')}`);
+            html = html.replace('id="sec">44', `id="sec">${String(sec1).padStart(2, '0')}`);
+            
+            // リスト部分の時刻表記も更新
+            html = html.replace('id="next1-time">12:45発', `id="next1-time">${min1}分${sec1}秒`);
+
+            // 次々便がある場合
+            if (data[1]) {
+                const totalSec2 = data[1]['odpt:delay'] || 0;
+                const min2 = Math.floor(totalSec2 / 60);
+                const sec2 = totalSec2 % 60;
+                html = html.replace('id="next2-time">13:00発', `id="next2-time">${min2}分${sec2}秒`);
+            }
         }
 
         fs.writeFileSync('index.html', html);
-        console.log("更新完了");
-    } catch (e) { console.error(e); }
+        console.log("Real-time data updated.");
+    } catch (e) {
+        console.error("Fetch Error:", e);
+    }
 }
 fetchBusData();
