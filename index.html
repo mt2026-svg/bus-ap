@@ -1,42 +1,82 @@
-const fs = require('fs');
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>都バス運行情報 - 山吹町</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
+        .header-nav { width: 100%; display: flex; padding: 10px; gap: 10px; background: #f8f8f8; border-bottom: 1px solid #ddd; }
+        .nav-item { border: 1px solid #ccc; padding: 5px 15px; border-radius: 5px; font-size: 0.8rem; background: #fff; }
+        
+        .main-display { text-align: center; margin-top: 40px; width: 90%; }
+        .stop-name { font-size: 1.5rem; color: #888; margin-bottom: 5px; }
+        .bus-type { font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
+        .eta-label { color: #888; font-size: 1rem; margin-bottom: 10px; }
+        .eta-main { font-size: 6rem; font-weight: bold; line-height: 1; }
+        .eta-unit { font-size: 2rem; }
 
-async function fetchBusData() {
-    const token = process.env.ODPT_ACCESS_TOKEN;
-    const url = `https://api.odpt.org/api/v4/odpt:BusArrivalPredict?odpt:operator=odpt.Operator:Toei&odpt:busstopPole=odpt.BusstopPole:Toei.Yamabukicho.1355.1&acl:consumerKey=${token}`;
+        .destination-badge { display: inline-block; background: #f39c12; color: white; padding: 5px 30px; border-radius: 20px; margin: 20px 0; font-weight: bold; }
 
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-        let html = fs.readFileSync('index.html', 'utf8');
+        .list-container { width: 90%; max-width: 400px; margin-top: 20px; }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-radius: 15px; margin-bottom: 10px; background: #fcfcfc; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #ddd; }
+        .list-item.active { border-left-color: #f39c12; outline: 2px solid #f39c12; }
+        .list-item.secondary { border-left-color: #f1c40f; }
+        .list-item.tertiary { border-left-color: #e67e22; }
+        
+        .list-label { color: #aaa; font-size: 0.8rem; width: 50px; }
+        .list-desc { font-weight: bold; flex-grow: 1; text-align: left; padding-left: 10px; }
+        .list-time { font-weight: bold; font-size: 1.1rem; }
 
-        if (data && data.length > 0) {
-            // 次便のデータ処理
-            const bus1 = data[0];
-            const totalSec1 = bus1['odpt:delay'] || 0; 
-            const min1 = Math.floor(totalSec1 / 60);
-            const sec1 = totalSec1 % 60;
+        .ad-banner { position: fixed; bottom: 0; width: 100%; background: #fff; border-top: 1px solid #eee; padding: 15px; display: flex; align-items: center; gap: 15px; }
+        .ad-icon { background: #f39c12; color: white; width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .ad-text { text-align: left; font-size: 0.85rem; flex-grow: 1; }
+        .ad-text b { color: #f39c12; display: block; }
+        .ad-btn { background: #f39c12; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
 
-            // HTML内のデモ数字を本物のデータに置換
-            // ※04分44秒の部分を、取得したmin1, sec1で書き換えます
-            html = html.replace('id="min">04', `id="min">${String(min1).padStart(2, '0')}`);
-            html = html.replace('id="sec">44', `id="sec">${String(sec1).padStart(2, '0')}`);
-            
-            // リスト部分の時刻表記も更新
-            html = html.replace('id="next1-time">12:45発', `id="next1-time">${min1}分${sec1}秒`);
+    <div class="header-nav">
+        <div class="nav-item">都営バス ∨</div>
+        <div class="nav-item">山吹町 ∨</div>
+        <div style="background:black; color:white; padding:5px 10px; border-radius:5px; font-size:0.8rem;">10倍速OFF</div>
+    </div>
 
-            // 次々便がある場合
-            if (data[1]) {
-                const totalSec2 = data[1]['odpt:delay'] || 0;
-                const min2 = Math.floor(totalSec2 / 60);
-                const sec2 = totalSec2 % 60;
-                html = html.replace('id="next2-time">13:00発', `id="next2-time">${min2}分${sec2}秒`);
-            }
-        }
+    <div class="main-display">
+        <div class="stop-name">山吹町</div>
+        <div class="bus-app-label" style="font-weight:bold; font-size:1.5rem;">白61：新宿駅西口行</div>
+        <div class="eta-label">発車まで あと</div>
+        <div class="eta-main" id="main-eta">--<span class="eta-unit">分</span></div>
+        <div class="destination-badge">新宿方面</div>
+    </div>
 
-        fs.writeFileSync('index.html', html);
-        console.log("Real-time data updated.");
-    } catch (e) {
-        console.error("Fetch Error:", e);
-    }
-}
-fetchBusData();
+    <div class="list-container">
+        <div class="list-item active">
+            <div class="list-label">次便</div>
+            <div class="list-desc" id="bus1-desc">新宿駅西口 行</div>
+            <div class="list-time" id="bus1-time">--:--発</div>
+        </div>
+        <div class="list-item secondary">
+            <div class="list-label">次々便</div>
+            <div class="list-desc" id="bus2-desc">新宿駅西口 行</div>
+            <div class="list-time" id="bus2-time">--:--発</div>
+        </div>
+        <div class="list-item tertiary">
+            <div class="list-label">次々々便</div>
+            <div class="list-desc" id="bus3-desc">新宿駅西口 行</div>
+            <div class="list-time" id="bus3-time">--:--発</div>
+        </div>
+    </div>
+
+    <div style="height: 100px;"></div> <div class="ad-banner">
+        <div class="ad-icon">✨</div>
+        <div class="ad-text">
+            <b>RECOMMEND</b>
+            バスを待つ間に、駅前のカフェで<br>新メニューをチェック！
+        </div>
+        <a href="#" class="ad-btn">詳細</a>
+    </div>
+
+</body>
+</html>
