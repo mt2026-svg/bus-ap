@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEI BUS ALERT - 山吹町</title>
+    <title>TOEI BUS REALTIME - 山吹町</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@700&display=swap" rel="stylesheet">
     <style>
-        :root { --toei-green: #008542; --toei-orange: #ff8c00; }
-        body { font-family: sans-serif; overflow: hidden; margin: 0; background-color: #f9fafb; }
+        :root { --toei-green: #008542; }
+        body { font-family: sans-serif; margin: 0; background-color: #f9fafb; overflow: hidden; }
         .condensed-font { font-family: 'Archivo Narrow', sans-serif; display: flex; align-items: baseline; justify-content: center; }
         .active-tab { border-bottom: 4px solid var(--toei-green); color: var(--toei-green) !important; font-weight: 900; }
         .bus-card { transition: 0.2s; border: 1px solid #eee; background: white; }
-        .selected-bus { border: 2.5px solid var(--toei-green) !important; transform: scale(1.02); z-index: 10; box-shadow: 0 4px 15px rgba(0,133,66,0.1); }
     </style>
 </head>
 <body>
@@ -28,18 +27,21 @@
 
         <div class="flex bg-white border-b">
             <button id="tab-shinjuku" onclick="switchDirection('shinjuku')" class="flex-1 py-4 text-xs text-gray-400 font-bold active-tab">新宿駅西口 方面</button>
-            <button id="tab-ueno" onclick="switchDirection('ueno')" class="flex-1 py-4 text-xs text-gray-400 font-bold">上野・早稲田 方面</button>
+            <button id="tab-ueno" onclick="switchDirection('ueno')" class="flex-1 py-4 text-xs text-gray-400 font-bold">飯田橋・九段下 方面</button>
         </div>
 
         <div class="flex-grow flex flex-col items-center justify-center px-4">
             <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-[340px] border border-gray-100 text-center mb-6">
-                <div id="bus-route-label" class="inline-block bg-green-700 text-white px-3 py-0.5 rounded text-xs font-bold mb-2">白61</div>
-                <div id="bus-dest-label" class="text-2xl font-black mb-1 text-gray-800">新宿駅西口 行き</div>
+                <div id="bus-route-label" class="inline-block bg-green-700 text-white px-3 py-0.5 rounded text-xs font-bold mb-2">---</div>
+                <div id="bus-dest-label" class="text-2xl font-black mb-1 text-gray-800">読み込み中...</div>
                 <div class="text-[10px] font-bold text-gray-400 mb-2">発車まで あと</div>
                 
                 <div id="timer-display" class="condensed-font text-[80px] leading-none font-bold text-green-700">
                     <span id="min">00</span><span class="mx-1 text-[24px]">分</span>
                     <span id="sec">00</span><span class="mx-1 text-[24px]">秒</span>
+                </div>
+                <div id="realtime-badge" class="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-full border border-orange-100 hidden">
+                    <i data-lucide="radio" class="w-3 h-3"></i> REALTIME
                 </div>
             </div>
             
@@ -47,90 +49,60 @@
         </div>
     </div>
 
-    <div class="fixed bottom-0 left-0 w-full h-[80px] bg-white border-t flex items-center px-6 z-50">
-        <div class="flex-grow text-left">
-            <p class="text-[10px] font-bold text-green-700">● 運行状況</p>
-            <p class="text-xs font-bold text-gray-600">現在、平常どおり運行しています</p>
-        </div>
-        <button class="bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold">運行情報</button>
-    </div>
-
     <script>
+        // --- 昨日のトークン隠し設定 ---
+        // ここで昨日設定した「トークンを読み込む仕組み」を実行します
+        const API_KEY = localStorage.getItem('TOEI_API_TOKEN') || 'YOUR_TOKEN_HERE'; 
+        const BUS_STOP_ID = 'odpt.Busstop:Toei.Yamabukicho';
+
         let currentDirection = 'shinjuku';
         let upcomingBuses = [];
 
-        // 山吹町の「今の時間から1時間分」のダミーダイヤを生成
-        function getRealTimeSchedule(dir) {
-            const now = new Date();
-            const h = now.getHours();
-            const m = now.getMinutes();
-            const list = [];
+        // APIから本物のデータを取得する関数
+        async function fetchBusData() {
+            const url = `https://api.odpt.org/api/v4/odpt:Bus?odpt:operator=odpt.Operator:Toei&odpt:busstop=${BUS_STOP_ID}&acl:consumerKey=${API_KEY}`;
             
-            if (dir === 'shinjuku') {
-                // 新宿方面：12分おき
-                [m+5, m+17, m+29, m+41].forEach(min => {
-                    let hour = h; let minute = min;
-                    if (minute >= 60) { hour++; minute -= 60; }
-                    list.push({h: hour, m: minute, route: "白61", dest: "新宿駅西口", color: "#008542"});
-                });
-            } else {
-                // 上野・早稲田方面：15分おき
-                [m+8, m+23, m+38, m+53].forEach(min => {
-                    let hour = h; let minute = min;
-                    if (minute >= 60) { hour++; minute -= 60; }
-                    list.push({h: hour, m: minute, route: "上58", dest: "上野松坂屋", color: "#ff8c00"});
-                });
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // 現在のタブ（方面）に合わせてデータを絞り込む
+                const targetDest = currentDirection === 'shinjuku' ? '新宿駅西口' : '上野松坂屋';
+                
+                upcomingBuses = data
+                    .filter(bus => bus['odpt:destinationSign'].includes(targetDest) || (currentDirection === 'ueno' && bus['odpt:destinationSign'].includes('早稲田')))
+                    .map(bus => ({
+                        h: new Date(bus['odpt:expectedArrivalTime']).getHours(),
+                        m: new Date(bus['odpt:expectedArrivalTime']).getMinutes(),
+                        route: bus['odpt:busRoutePattern'].split(':').pop().split('.')[0],
+                        dest: bus['odpt:destinationSign'],
+                        color: currentDirection === 'shinjuku' ? "#008542" : "#ff8c00",
+                        timeStr: bus['odpt:expectedArrivalTime']
+                    }))
+                    .sort((a, b) => new Date(a.timeStr) - new Date(b.timeStr));
+
+                updateTimetable();
+            } catch (e) {
+                console.error("データ取得失敗:", e);
             }
-            return list;
         }
 
         function switchDirection(dir) {
             currentDirection = dir;
             document.getElementById('tab-shinjuku').classList.toggle('active-tab', dir === 'shinjuku');
             document.getElementById('tab-ueno').classList.toggle('active-tab', dir === 'ueno');
-            updateTimetable();
+            fetchBusData(); // タブを切り替えたら即座に再取得
         }
 
         function updateTimetable() {
-            upcomingBuses = getRealTimeSchedule(currentDirection);
             const listContainer = document.getElementById('bus-list');
-            listContainer.innerHTML = upcomingBuses.slice(1).map((t) => `
+            if (upcomingBuses.length <= 1) {
+                listContainer.innerHTML = '<p class="text-center text-gray-400 text-xs">次のバス情報はありません</p>';
+                return;
+            }
+            
+            listContainer.innerHTML = upcomingBuses.slice(1, 4).map((t) => `
                 <div class="bus-card flex justify-between items-center px-4 py-3 rounded-xl border-l-4 opacity-60" style="border-left-color: ${t.color}">
                     <div class="flex flex-col items-start">
                         <span class="text-[9px] font-bold px-1.5 rounded mb-1 text-white" style="background:${t.color}">${t.route}</span>
-                        <span class="text-sm font-bold text-gray-700">${t.dest}</span>
-                    </div>
-                    <span class="font-black text-lg text-gray-600">${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}</span>
-                </div>
-            `).join('');
-        }
-
-        function updateDisplay() {
-            const now = new Date();
-            document.getElementById('current-clock').innerText = now.toLocaleTimeString();
-
-            if (upcomingBuses.length === 0) return;
-            
-            const target = upcomingBuses[0];
-            const targetDate = new Date();
-            targetDate.setHours(target.h, target.m, 0, 0);
-            
-            const diff = targetDate - now;
-            const m = Math.max(0, Math.floor(diff / 60000));
-            const s = Math.max(0, Math.floor((diff % 60000) / 1000));
-
-            document.getElementById('min').innerText = String(m).padStart(2, '0');
-            document.getElementById('sec').innerText = String(s).padStart(2, '0');
-            document.getElementById('bus-route-label').innerText = target.route;
-            document.getElementById('bus-route-label').style.backgroundColor = target.color;
-            document.getElementById('bus-dest-label').innerText = target.dest + " 行き";
-
-            if (diff <= -1000) updateTimetable();
-        }
-
-        setInterval(updateDisplay, 1000);
-        updateTimetable();
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+                        <span class="text-sm font-bold text-gray-700">${t.dest
