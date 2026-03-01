@@ -3,148 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEI BUS REALTIME - 山吹町</title>
+    <title>Bus Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@700&display=swap" rel="stylesheet">
-    <style>
-        :root { --toei-green: #008542; }
-        body { font-family: sans-serif; background-color: #f9fafb; overflow: hidden; margin: 0; }
-        .condensed-font { font-family: 'Archivo Narrow', sans-serif; display: flex; align-items: baseline; justify-content: center; }
-        .active-tab { border-bottom: 4px solid var(--toei-green); color: var(--toei-green) !important; font-weight: 900; }
-        .bus-card { transition: 0.2s; border: 1px solid #eee; background: white; }
-    </style>
 </head>
-<body>
-
-    <div id="app" class="h-screen flex flex-col relative pb-[80px]">
-        <div class="bg-white p-3 flex items-center justify-between border-b shadow-sm">
-            <div class="flex items-center gap-1 font-bold text-green-700 text-sm">
-                <i data-lucide="bus" class="w-4 h-4"></i> 都営バス：山吹町
+<body class="bg-gray-100 h-screen flex flex-col items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md text-center">
+        <h1 class="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
+            <i data-lucide="bus"></i> 都営バス
+        </h1>
+        <div id="bus-info">
+            <p id="route-name" class="text-lg font-bold text-green-700">---</p>
+            <p id="destination" class="text-xl mb-4">読み込み中...</p>
+            <div class="text-6xl font-black text-gray-800 mb-4">
+                <span id="minutes">00</span>分
             </div>
-            <div id="current-clock" class="font-mono font-bold text-gray-400 text-xs">00:00:00</div>
-        </div>
-
-        <div class="flex bg-white border-b">
-            <button id="tab-shinjuku" onclick="switchDirection('shinjuku')" class="flex-1 py-4 text-xs text-gray-400 font-bold active-tab">新宿駅西口 方面</button>
-            <button id="tab-ueno" onclick="switchDirection('ueno')" class="flex-1 py-4 text-xs text-gray-400 font-bold">飯田橋・九段下 方面</button>
-        </div>
-
-        <div class="flex-grow flex flex-col items-center justify-center px-4">
-            <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-[340px] border border-gray-100 text-center mb-6">
-                <div id="bus-route-label" class="inline-block bg-green-700 text-white px-3 py-0.5 rounded text-xs font-bold mb-2">---</div>
-                <div id="bus-dest-label" class="text-2xl font-black mb-1 text-gray-800">読み込み中...</div>
-                
-                <div id="timer-display" class="condensed-font text-[80px] leading-none font-bold text-green-700">
-                    <span id="min">00</span><span class="mx-1 text-[24px]">分</span>
-                    <span id="sec">00</span><span class="mx-1 text-[24px]">秒</span>
-                </div>
-                <div id="realtime-badge" class="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-full border border-orange-100 hidden">
-                    <i data-lucide="radio" class="w-3 h-3"></i> REALTIME
-                </div>
-            </div>
-            
-            <div class="w-full max-w-[340px] flex flex-col gap-2" id="bus-list"></div>
         </div>
     </div>
-
-    <script>
-        /**
-         * 昨日の設定：トークンは直接書かず localStorage から呼び出す
-         */
-        const API_KEY = localStorage.getItem('TOEI_API_TOKEN'); 
-        const BUS_STOP_ID = 'odpt.Busstop:Toei.Yamabukicho';
-
-        let currentDirection = 'shinjuku';
-        let upcomingBuses = [];
-
-        // API通信：山吹町のデータを取得して方面別に仕分ける
-        async function fetchBusData() {
-            if (!API_KEY) {
-                console.error("トークンがありません。localStorageにTOEI_API_TOKENをセットしてください。");
-                return;
-            }
-
-            const url = `https://api.odpt.org/api/v4/odpt:Bus?odpt:operator=odpt.Operator:Toei&odpt:busstop=${BUS_STOP_ID}&acl:consumerKey=${API_KEY}`;
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                // 山吹町の「新宿方面」か「それ以外（九段下・早稲田等）」かをJSで抽出
-                upcomingBuses = data
-                    .filter(bus => {
-                        const dest = bus['odpt:destinationSign'];
-                        return (currentDirection === 'shinjuku' && dest.includes('新宿')) ||
-                               (currentDirection === 'ueno' && (dest.includes('上野') || dest.includes('早稲田')));
-                    })
-                    .map(bus => ({
-                        h: new Date(bus['odpt:expectedArrivalTime']).getHours(),
-                        m: new Date(bus['odpt:expectedArrivalTime']).getMinutes(),
-                        route: bus['odpt:busRoutePattern'].split(':').pop().split('.')[0],
-                        dest: bus['odpt:destinationSign'],
-                        color: currentDirection === 'shinjuku' ? "#008542" : "#ff8c00",
-                        timeStr: bus['odpt:expectedArrivalTime']
-                    }))
-                    .sort((a, b) => new Date(a.timeStr) - new Date(b.timeStr));
-
-                renderBusList();
-            } catch (e) {
-                console.error("通信エラー:", e);
-            }
-        }
-
-        function switchDirection(dir) {
-            currentDirection = dir;
-            document.getElementById('tab-shinjuku').classList.toggle('active-tab', dir === 'shinjuku');
-            document.getElementById('tab-ueno').classList.toggle('active-tab', dir === 'ueno');
-            fetchBusData();
-        }
-
-        function renderBusList() {
-            const listContainer = document.getElementById('bus-list');
-            if (upcomingBuses.length <= 1) {
-                listContainer.innerHTML = '<p class="text-center text-gray-400 text-xs py-4">運行情報なし</p>';
-                return;
-            }
-            listContainer.innerHTML = upcomingBuses.slice(1, 4).map((t) => `
-                <div class="bus-card flex justify-between items-center px-4 py-3 rounded-xl border-l-4 opacity-60 bg-white" style="border-left-color: ${t.color}">
-                    <div class="flex flex-col items-start">
-                        <span class="text-[9px] font-bold px-1.5 rounded mb-1 text-white" style="background:${t.color}">${t.route}</span>
-                        <span class="text-sm font-bold text-gray-700">${t.dest}</span>
-                    </div>
-                    <span class="font-black text-lg text-gray-600">${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}</span>
-                </div>
-            `).join('');
-        }
-
-        function updateDisplay() {
-            const now = new Date();
-            document.getElementById('current-clock').innerText = now.toLocaleTimeString();
-
-            if (upcomingBuses.length === 0) return;
-            
-            const target = upcomingBuses[0];
-            const targetDate = new Date(target.timeStr);
-            const diff = targetDate - now;
-            
-            const m = Math.max(0, Math.floor(diff / 60000));
-            const s = Math.max(0, Math.floor((diff % 60000) / 1000));
-
-            document.getElementById('min').innerText = String(m).padStart(2, '0');
-            document.getElementById('sec').innerText = String(s).padStart(2, '0');
-            document.getElementById('bus-route-label').innerText = target.route;
-            document.getElementById('bus-dest-label').innerText = target.dest + " 行き";
-            document.getElementById('realtime-badge').classList.remove('hidden');
-
-            if (diff <= -1000) fetchBusData();
-        }
-
-        // 実行開始
-        fetchBusData();
-        setInterval(fetchBusData, 30000); // 30秒更新
-        setInterval(updateDisplay, 1000);  // 1秒更新
-        lucide.createIcons();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
