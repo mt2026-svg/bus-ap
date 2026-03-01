@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEI BUS REALTIME - 山吹町</title>
+    <title>TOEI BUS REALTIME</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@700&display=swap" rel="stylesheet">
@@ -12,13 +12,10 @@
         body { font-family: sans-serif; margin: 0; background-color: #f9fafb; overflow-x: hidden; }
         .condensed-font { font-family: 'Archivo Narrow', sans-serif; display: flex; align-items: baseline; justify-content: center; }
         .active-tab { border-bottom: 4px solid var(--toei-green); color: var(--toei-green) !important; font-weight: 900; }
-        /* 広告枠がエラー（Width=0）にならないようサイズを明示 */
-        .ad-container { min-width: 320px; min-height: 100px; width: 100%; display: flex; justify-content: center; }
     </style>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 </head>
 <body class="flex flex-col min-h-screen">
-
     <div id="app" class="flex-grow flex flex-col relative">
         <div class="bg-white p-3 flex items-center justify-between border-b shadow-sm sticky top-0 z-10">
             <div class="flex items-center gap-1 font-bold text-green-700 text-sm">
@@ -35,4 +32,30 @@
         <div class="flex-grow flex flex-col items-center justify-center px-4 py-6">
             <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-[340px] border border-gray-100 text-center mb-6">
                 <div id="bus-route-label" class="inline-block bg-green-700 text-white px-3 py-0.5 rounded text-xs font-bold mb-2">---</div>
-                <div id="bus-dest-label" class="text-2xl font-black mb-1 text
+                <div id="bus-dest-label" class="text-2xl font-black mb-1 text-gray-800 text-center">読み込み中...</div>
+                <div class="condensed-font text-[80px] leading-none font-bold text-green-700">
+                    <span id="min">00</span><span class="mx-1 text-[24px]">分</span>
+                    <span id="sec">00</span><span class="mx-1 text-[24px]">秒</span>
+                </div>
+            </div>
+            <div class="w-full max-w-[340px] flex flex-col gap-2 mb-4" id="bus-list"></div>
+        </div>
+    </div>
+
+    <footer class="w-full bg-white border-t mt-auto">
+        <div class="p-2 text-[9px] text-gray-400 text-center leading-tight border-b">
+            公共交通オープンデータセンターにて公開されている、東京都交通局のデータを活用しています。
+        </div>
+        <div class="py-2 bg-gray-50 flex justify-center items-center" style="min-height: 100px;">
+            <div style="width: 320px; height: 100px; overflow: hidden;">
+                <ins class="adsbygoogle"
+                     style="display:inline-block;width:320px;height:100px"
+                     data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                     data-ad-slot="XXXXXXXXXX"></ins>
+                <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+            </div>
+        </div>
+    </footer>
+    <script src="app.js"></script>
+</body>
+</html>
