@@ -13,7 +13,6 @@
         .condensed-font { font-family: 'Archivo Narrow', sans-serif; display: flex; align-items: baseline; justify-content: center; }
         .active-tab { border-bottom: 4px solid var(--toei-green); color: var(--toei-green) !important; font-weight: 900; }
     </style>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 </head>
 <body class="flex flex-col min-h-screen">
     <div id="app" class="flex-grow flex flex-col relative">
@@ -44,16 +43,18 @@
 
     <footer class="w-full bg-white border-t mt-auto">
         <div class="p-2 text-[9px] text-gray-400 text-center leading-tight border-b">
-            公共交通オープンデータセンターにて公開されている、東京都交通局のデータを活用しています。
+            公共交通オープンデータセンターにて公開されている、東京都交通局のデータを活用しています。<br>
+            実際の運行状況と異なる場合があります。
         </div>
-        <div class="py-2 bg-gray-50 flex justify-center items-center" style="min-height: 100px;">
-            <div style="width: 320px; height: 100px; overflow: hidden;">
-                <ins class="adsbygoogle"
-                     style="display:inline-block;width:320px;height:100px"
-                     data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                     data-ad-slot="XXXXXXXXXX"></ins>
-                <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-            </div>
+        <div class="py-2 bg-gray-50 flex justify-center items-center">
+            <script type="text/javascript" src="https://adm.shinobi.jp/st/s.js"></script>
+            <script type="text/javascript">
+            //<![CDATA[
+            var nin_ad_group_id = "XXXXXXXX";
+            var nin_ad_id = "XXXXXXXX";
+            document.write('<scr'+'ipt type="text/javascript" src="https://adm.shinobi.jp/s/'+nin_ad_group_id+'/'+nin_ad_id+'/"></scr'+'ipt>');
+            //]]>
+            </script>
         </div>
     </footer>
     <script src="app.js"></script>
