@@ -22,7 +22,7 @@ async function fetchBusData() {
         })).sort((a, b) => new Date(a.timeStr) - new Date(b.timeStr));
 
         renderBusList();
-    } catch (e) { console.error("Fetch Error:", e); }
+    } catch (e) { console.error(e); }
 }
 
 function renderBusList() {
@@ -32,12 +32,14 @@ function renderBusList() {
         <div class="flex justify-between items-center px-4 py-3 rounded-xl border-l-4 bg-white shadow-sm" style="border-left-color: ${t.color}">
             <div class="flex flex-col"><span class="text-[10px] font-bold text-gray-400">${t.route}</span><span class="text-sm font-bold text-gray-700">${t.dest}</span></div>
             <span class="font-black text-lg text-gray-600">${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}</span>
-        </div>`).join('') : '<div class="text-gray-400 text-xs text-center py-4">次便なし</div>';
+        </div>`).join('') : '';
 }
 
 function updateDisplay() {
     const now = new Date();
-    document.getElementById('current-clock').innerText = now.toLocaleTimeString();
+    const clock = document.getElementById('current-clock');
+    if (clock) clock.innerText = now.toLocaleTimeString();
+
     if (upcomingBuses.length === 0) return;
 
     const diff = new Date(upcomingBuses[0].timeStr) - now;
