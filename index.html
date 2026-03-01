@@ -3,112 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>都バス運行情報 - 山吹町</title>
+    <title>TOEI BUS ALERT - 山吹町</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@700&display=swap" rel="stylesheet">
     <style>
-        :root { --toei-green: #006400; --kintetsu-orange: #f39c12; }
-        body { font-family: sans-serif; background: #fff; color: #333; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
-        
-        /* 上部バー */
-        .header-nav { width: 100%; display: flex; padding: 10px; gap: 10px; background: #f8f8f8; border-bottom: 1px solid #ddd; justify-content: center; align-items: center; }
-        .nav-item { border: 1px solid #ccc; padding: 5px 15px; border-radius: 5px; font-size: 0.8rem; background: #fff; }
-
-        /* 方面選択ボタン */
-        .selector-container { display: flex; width: 100%; background: #f8f8f8; border-bottom: 1px solid #ddd; }
-        .dest-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: bold; color: #888; cursor: pointer; border-bottom: 3px solid transparent; }
-        .dest-btn.active { color: var(--kintetsu-orange); border-bottom-color: var(--kintetsu-orange); background: #fff; }
-
-        /* メイン表示 */
-        .main-display { text-align: center; padding: 30px 20px; width: 100%; box-sizing: border-box; }
-        .current-dest-name { font-size: 1.5rem; color: #888; font-weight: bold; margin-bottom: 5px; }
-        .bus-line-name { font-size: 1.8rem; font-weight: bold; margin-bottom: 20px; }
-        .eta-label { color: #888; font-size: 0.9rem; margin-bottom: 5px; }
-        .eta-main { font-size: 5.5rem; font-weight: bold; line-height: 1; color: #333; }
-        .eta-unit { font-size: 1.5rem; margin: 0 5px; color: #666; }
-        .destination-badge { display: inline-block; background: var(--kintetsu-orange); color: white; padding: 5px 30px; border-radius: 20px; margin: 25px 0; font-weight: bold; }
-
-        /* リスト */
-        .list-container { width: 92%; max-width: 450px; margin-bottom: 100px; }
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; }
-        .list-item.active { border: 2px solid var(--kintetsu-orange); }
-        .list-label { font-size: 0.7rem; color: #999; font-weight: bold; width: 40px; }
-        .list-desc { font-weight: bold; flex-grow: 1; text-align: left; padding-left: 10px; }
-        .list-time { font-weight: bold; font-size: 1.1rem; }
-
-        /* 広告バナー（修正済み） */
-        .ad-banner { 
-            position: fixed; 
-            bottom: 0; 
-            width: 100%; 
-            background: #fff; 
-            border-top: 1px solid #eee; 
-            min-height: 60px; 
-            text-align: center; 
-            padding: 10px 0; 
-            z-index: 1000;
-        }
+        :root { --toei-green: #008542; --toei-orange: #ff8c00; }
+        body { font-family: sans-serif; overflow: hidden; margin: 0; background-color: #f9fafb; }
+        .condensed-font { font-family: 'Archivo Narrow', sans-serif; display: flex; align-items: baseline; justify-content: center; }
+        .active-tab { border-bottom: 4px solid var(--toei-green); color: var(--toei-green) !important; font-weight: 900; }
+        .bus-card { transition: 0.2s; border: 1px solid #eee; background: white; }
+        .selected-bus { border: 2.5px solid var(--toei-green) !important; transform: scale(1.02); z-index: 10; box-shadow: 0 4px 15px rgba(0,133,66,0.1); }
     </style>
 </head>
 <body>
 
-    <div class="header-nav">
-        <div class="nav-item">都営バス</div>
-        <div class="nav-item">山吹町</div>
-    </div>
-
-    <div class="selector-container">
-        <button class="dest-btn active" onclick="switchDest('shinjuku')">新宿駅西口 方面</button>
-        <button class="dest-btn" onclick="switchDest('kudan')">飯田橋・九段下 方面</button>
-    </div>
-
-    <div class="main-display">
-        <div class="current-dest-name">山吹町</div>
-        <div id="line-title" class="bus-line-name">白61：新宿駅西口 行</div>
-        <div class="eta-label">発車まで あと</div>
-        <div class="eta-main">
-            <span id="min">--</span><span class="eta-unit">分</span><span id="sec">--</span><span class="eta-unit">秒</span>
+    <div id="app" class="h-screen flex flex-col relative pb-[80px]">
+        <div class="bg-white p-3 flex items-center justify-between border-b shadow-sm">
+            <div class="flex items-center gap-1 font-bold text-green-700 text-sm">
+                <i data-lucide="bus" class="w-4 h-4"></i> 都営バス：山吹町
+            </div>
+            <div id="current-clock" class="font-mono font-bold text-gray-400 text-xs">00:00:00</div>
         </div>
-        <div id="badge" class="destination-badge">新宿方面</div>
-    </div>
 
-    <div style="font-size: 0.65rem; color: #999; text-align: center; margin-bottom: 110px;">
-        データ提供：東京都交通局
-    </div>
-
-    <div class="list-container">
-        <div class="list-item active">
-            <div class="list-label">次便</div>
-            <div id="next1-name" class="list-desc">白61系統</div>
-            <div id="next1-time" class="list-time">--分--秒</div>
+        <div class="flex bg-white border-b">
+            <button id="tab-shinjuku" onclick="switchDirection('shinjuku')" class="flex-1 py-4 text-xs text-gray-400 font-bold active-tab">新宿駅西口 方面</button>
+            <button id="tab-ueno" onclick="switchDirection('ueno')" class="flex-1 py-4 text-xs text-gray-400 font-bold">上野・早稲田 方面</button>
         </div>
-        <div class="list-item">
-            <div class="list-label">次々便</div>
-            <div id="next2-name" class="list-desc">白61系統</div>
-            <div id="next2-time" class="list-time">--分--秒</div>
+
+        <div class="flex-grow flex flex-col items-center justify-center px-4">
+            <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-[340px] border border-gray-100 text-center mb-6">
+                <div id="bus-route-label" class="inline-block bg-green-700 text-white px-3 py-0.5 rounded text-xs font-bold mb-2">白61</div>
+                <div id="bus-dest-label" class="text-2xl font-black mb-1 text-gray-800">新宿駅西口 行き</div>
+                <div class="text-[10px] font-bold text-gray-400 mb-2">発車まで あと</div>
+                
+                <div id="timer-display" class="condensed-font text-[80px] leading-none font-bold text-green-700">
+                    <span id="min">00</span><span class="mx-1 text-[24px]">分</span>
+                    <span id="sec">00</span><span class="mx-1 text-[24px]">秒</span>
+                </div>
+            </div>
+            
+            <div class="w-full max-w-[340px] flex flex-col gap-2" id="bus-list"></div>
         </div>
     </div>
 
-    <div class="ad-banner">
-        <script src="https://adm.shinobi.jp/s/02791f6792c76e7426317acf442bfb88"></script>
+    <div class="fixed bottom-0 left-0 w-full h-[80px] bg-white border-t flex items-center px-6 z-50">
+        <div class="flex-grow text-left">
+            <p class="text-[10px] font-bold text-green-700">● 運行状況</p>
+            <p class="text-xs font-bold text-gray-600">現在、平常どおり運行しています</p>
         </div>
+        <button class="bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold">運行情報</button>
+    </div>
 
     <script>
-        function switchDest(dest) {
-            const btns = document.querySelectorAll('.dest-btn');
-            btns.forEach(b => b.classList.remove('active'));
-            if(dest === 'shinjuku') {
-                btns[0].classList.add('active');
-                document.getElementById('line-title').innerText = '白61：新宿駅西口 行';
-                document.getElementById('badge').innerText = '新宿方面';
-                document.getElementById('next1-name').innerText = '白61系統';
-                document.getElementById('next2-name').innerText = '白61系統';
+        let currentDirection = 'shinjuku';
+        let upcomingBuses = [];
+
+        // 山吹町の「今の時間から1時間分」のダミーダイヤを生成
+        function getRealTimeSchedule(dir) {
+            const now = new Date();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            const list = [];
+            
+            if (dir === 'shinjuku') {
+                // 新宿方面：12分おき
+                [m+5, m+17, m+29, m+41].forEach(min => {
+                    let hour = h; let minute = min;
+                    if (minute >= 60) { hour++; minute -= 60; }
+                    list.push({h: hour, m: minute, route: "白61", dest: "新宿駅西口", color: "#008542"});
+                });
             } else {
-                btns[1].classList.add('active');
-                document.getElementById('line-title').innerText = '飯64：九段下 行';
-                document.getElementById('badge').innerText = '飯田橋・九段下方面';
-                document.getElementById('next1-name').innerText = '飯64系統';
-                document.getElementById('next2-name').innerText = '飯64系統';
+                // 上野・早稲田方面：15分おき
+                [m+8, m+23, m+38, m+53].forEach(min => {
+                    let hour = h; let minute = min;
+                    if (minute >= 60) { hour++; minute -= 60; }
+                    list.push({h: hour, m: minute, route: "上58", dest: "上野松坂屋", color: "#ff8c00"});
+                });
             }
+            return list;
         }
+
+        function switchDirection(dir) {
+            currentDirection = dir;
+            document.getElementById('tab-shinjuku').classList.toggle('active-tab', dir === 'shinjuku');
+            document.getElementById('tab-ueno').classList.toggle('active-tab', dir === 'ueno');
+            updateTimetable();
+        }
+
+        function updateTimetable() {
+            upcomingBuses = getRealTimeSchedule(currentDirection);
+            const listContainer = document.getElementById('bus-list');
+            listContainer.innerHTML = upcomingBuses.slice(1).map((t) => `
+                <div class="bus-card flex justify-between items-center px-4 py-3 rounded-xl border-l-4 opacity-60" style="border-left-color: ${t.color}">
+                    <div class="flex flex-col items-start">
+                        <span class="text-[9px] font-bold px-1.5 rounded mb-1 text-white" style="background:${t.color}">${t.route}</span>
+                        <span class="text-sm font-bold text-gray-700">${t.dest}</span>
+                    </div>
+                    <span class="font-black text-lg text-gray-600">${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateDisplay() {
+            const now = new Date();
+            document.getElementById('current-clock').innerText = now.toLocaleTimeString();
+
+            if (upcomingBuses.length === 0) return;
+            
+            const target = upcomingBuses[0];
+            const targetDate = new Date();
+            targetDate.setHours(target.h, target.m, 0, 0);
+            
+            const diff = targetDate - now;
+            const m = Math.max(0, Math.floor(diff / 60000));
+            const s = Math.max(0, Math.floor((diff % 60000) / 1000));
+
+            document.getElementById('min').innerText = String(m).padStart(2, '0');
+            document.getElementById('sec').innerText = String(s).padStart(2, '0');
+            document.getElementById('bus-route-label').innerText = target.route;
+            document.getElementById('bus-route-label').style.backgroundColor = target.color;
+            document.getElementById('bus-dest-label').innerText = target.dest + " 行き";
+
+            if (diff <= -1000) updateTimetable();
+        }
+
+        setInterval(updateDisplay, 1000);
+        updateTimetable();
+        lucide.createIcons();
     </script>
 </body>
 </html>
