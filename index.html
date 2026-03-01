@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@700&display=swap" rel="stylesheet">
     <style>
         :root { --toei-green: #008542; }
-        body { font-family: sans-serif; margin: 0; background-color: #f9fafb; overflow: hidden; }
+        body { font-family: sans-serif; background-color: #f9fafb; overflow: hidden; margin: 0; }
         .condensed-font { font-family: 'Archivo Narrow', sans-serif; display: flex; align-items: baseline; justify-content: center; }
         .active-tab { border-bottom: 4px solid var(--toei-green); color: var(--toei-green) !important; font-weight: 900; }
         .bus-card { transition: 0.2s; border: 1px solid #eee; background: white; }
@@ -34,7 +34,6 @@
             <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-[340px] border border-gray-100 text-center mb-6">
                 <div id="bus-route-label" class="inline-block bg-green-700 text-white px-3 py-0.5 rounded text-xs font-bold mb-2">---</div>
                 <div id="bus-dest-label" class="text-2xl font-black mb-1 text-gray-800">読み込み中...</div>
-                <div class="text-[10px] font-bold text-gray-400 mb-2">発車まで あと</div>
                 
                 <div id="timer-display" class="condensed-font text-[80px] leading-none font-bold text-green-700">
                     <span id="min">00</span><span class="mx-1 text-[24px]">分</span>
@@ -50,27 +49,35 @@
     </div>
 
     <script>
-        // --- 昨日のトークン隠し設定 ---
-        // ここで昨日設定した「トークンを読み込む仕組み」を実行します
-        const API_KEY = localStorage.getItem('TOEI_API_TOKEN') || 'YOUR_TOKEN_HERE'; 
+        /**
+         * 昨日の設定：トークンは直接書かず localStorage から呼び出す
+         */
+        const API_KEY = localStorage.getItem('TOEI_API_TOKEN'); 
         const BUS_STOP_ID = 'odpt.Busstop:Toei.Yamabukicho';
 
         let currentDirection = 'shinjuku';
         let upcomingBuses = [];
 
-        // APIから本物のデータを取得する関数
+        // API通信：山吹町のデータを取得して方面別に仕分ける
         async function fetchBusData() {
+            if (!API_KEY) {
+                console.error("トークンがありません。localStorageにTOEI_API_TOKENをセットしてください。");
+                return;
+            }
+
             const url = `https://api.odpt.org/api/v4/odpt:Bus?odpt:operator=odpt.Operator:Toei&odpt:busstop=${BUS_STOP_ID}&acl:consumerKey=${API_KEY}`;
             
             try {
                 const response = await fetch(url);
                 const data = await response.json();
                 
-                // 現在のタブ（方面）に合わせてデータを絞り込む
-                const targetDest = currentDirection === 'shinjuku' ? '新宿駅西口' : '上野松坂屋';
-                
+                // 山吹町の「新宿方面」か「それ以外（九段下・早稲田等）」かをJSで抽出
                 upcomingBuses = data
-                    .filter(bus => bus['odpt:destinationSign'].includes(targetDest) || (currentDirection === 'ueno' && bus['odpt:destinationSign'].includes('早稲田')))
+                    .filter(bus => {
+                        const dest = bus['odpt:destinationSign'];
+                        return (currentDirection === 'shinjuku' && dest.includes('新宿')) ||
+                               (currentDirection === 'ueno' && (dest.includes('上野') || dest.includes('早稲田')));
+                    })
                     .map(bus => ({
                         h: new Date(bus['odpt:expectedArrivalTime']).getHours(),
                         m: new Date(bus['odpt:expectedArrivalTime']).getMinutes(),
@@ -81,9 +88,9 @@
                     }))
                     .sort((a, b) => new Date(a.timeStr) - new Date(b.timeStr));
 
-                updateTimetable();
+                renderBusList();
             } catch (e) {
-                console.error("データ取得失敗:", e);
+                console.error("通信エラー:", e);
             }
         }
 
@@ -91,18 +98,53 @@
             currentDirection = dir;
             document.getElementById('tab-shinjuku').classList.toggle('active-tab', dir === 'shinjuku');
             document.getElementById('tab-ueno').classList.toggle('active-tab', dir === 'ueno');
-            fetchBusData(); // タブを切り替えたら即座に再取得
+            fetchBusData();
         }
 
-        function updateTimetable() {
+        function renderBusList() {
             const listContainer = document.getElementById('bus-list');
             if (upcomingBuses.length <= 1) {
-                listContainer.innerHTML = '<p class="text-center text-gray-400 text-xs">次のバス情報はありません</p>';
+                listContainer.innerHTML = '<p class="text-center text-gray-400 text-xs py-4">運行情報なし</p>';
                 return;
             }
-            
             listContainer.innerHTML = upcomingBuses.slice(1, 4).map((t) => `
-                <div class="bus-card flex justify-between items-center px-4 py-3 rounded-xl border-l-4 opacity-60" style="border-left-color: ${t.color}">
+                <div class="bus-card flex justify-between items-center px-4 py-3 rounded-xl border-l-4 opacity-60 bg-white" style="border-left-color: ${t.color}">
                     <div class="flex flex-col items-start">
                         <span class="text-[9px] font-bold px-1.5 rounded mb-1 text-white" style="background:${t.color}">${t.route}</span>
-                        <span class="text-sm font-bold text-gray-700">${t.dest
+                        <span class="text-sm font-bold text-gray-700">${t.dest}</span>
+                    </div>
+                    <span class="font-black text-lg text-gray-600">${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateDisplay() {
+            const now = new Date();
+            document.getElementById('current-clock').innerText = now.toLocaleTimeString();
+
+            if (upcomingBuses.length === 0) return;
+            
+            const target = upcomingBuses[0];
+            const targetDate = new Date(target.timeStr);
+            const diff = targetDate - now;
+            
+            const m = Math.max(0, Math.floor(diff / 60000));
+            const s = Math.max(0, Math.floor((diff % 60000) / 1000));
+
+            document.getElementById('min').innerText = String(m).padStart(2, '0');
+            document.getElementById('sec').innerText = String(s).padStart(2, '0');
+            document.getElementById('bus-route-label').innerText = target.route;
+            document.getElementById('bus-dest-label').innerText = target.dest + " 行き";
+            document.getElementById('realtime-badge').classList.remove('hidden');
+
+            if (diff <= -1000) fetchBusData();
+        }
+
+        // 実行開始
+        fetchBusData();
+        setInterval(fetchBusData, 30000); // 30秒更新
+        setInterval(updateDisplay, 1000);  // 1秒更新
+        lucide.createIcons();
+    </script>
+</body>
+</html>
