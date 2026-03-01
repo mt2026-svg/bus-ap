@@ -1,39 +1,74 @@
-// 東京都交通局 API連携用設定
-const API_KEY = 'YOUR_ACCESS_TOKEN'; // ←ここに昨日のトークンを入力
-const BUS_STOP_ID = 'odpt.Busstop:Toei.Yamabukicho'; // 山吹町バス停ID
+const API_KEY = localStorage.getItem('TOEI_API_TOKEN');
+const BUS_STOP_ID = 'odpt.Busstop:Toei.Yamabukicho';
 
-async function fetchRealtimeData() {
+let currentDirection = 'shinjuku';
+let upcomingBuses = [];
+
+async function fetchBusData() {
+    if (!API_KEY) return;
     const url = `https://api.odpt.org/api/v4/odpt:Bus?odpt:operator=odpt.Operator:Toei&odpt:busstop=${BUS_STOP_ID}&acl:consumerKey=${API_KEY}`;
     
     try {
         const response = await fetch(url);
         const data = await response.json();
         
-        // 取得したデータから「新宿駅西口行」などを抽出
-        const filteredBuses = data.filter(bus => {
-            // 現在の方面（shinjuku / ueno）に合わせてフィルタリング
-            const targetDest = currentDirection === 'shinjuku' ? '新宿駅西口' : '上野松坂屋';
-            return bus['odpt:destinationSign'] === targetDest;
-        });
-
-        // リアルタイム情報を upcomingBuses 配列に反映
-        upcomingBuses = filteredBuses.map(bus => {
-            const date = new Date(bus['odpt:expectedArrivalTime']);
-            return {
-                h: date.getHours(),
-                m: date.getMinutes(),
-                route: bus['odpt:busRoutePattern'].split(':').pop().split('.')[0], // 系統名抽出
+        upcomingBuses = data
+            .filter(bus => {
+                const dest = bus['odpt:destinationSign'];
+                return (currentDirection === 'shinjuku' && dest.includes('新宿')) ||
+                       (currentDirection === 'ueno' && (dest.includes('上野') || dest.includes('早稲田')));
+            })
+            .map(bus => ({
+                h: new Date(bus['odpt:expectedArrivalTime']).getHours(),
+                m: new Date(bus['odpt:expectedArrivalTime']).getMinutes(),
+                route: bus['odpt:busRoutePattern'].split(':').pop().split('.')[0],
                 dest: bus['odpt:destinationSign'],
                 color: currentDirection === 'shinjuku' ? "#008542" : "#ff8c00",
-                isRealtime: true
-            };
-        });
+                timeStr: bus['odpt:expectedArrivalTime']
+            }))
+            .sort((a, b) => new Date(a.timeStr) - new Date(b.timeStr));
 
-        updateTimetable(); // 表示を更新
-    } catch (error) {
-        console.error("API取得エラー:", error);
-    }
+        renderBusList();
+    } catch (e) { console.error(e); }
 }
 
-// 5分ごとにリアルタイムデータを更新
-setInterval(fetchRealtimeData, 300000);
+function switchDirection(dir) {
+    currentDirection = dir;
+    document.getElementById('tab-shinjuku').classList.toggle('active-tab', dir === 'shinjuku');
+    document.getElementById('tab-ueno').classList.toggle('active-tab', dir === 'ueno');
+    fetchBusData();
+}
+
+function renderBusList() {
+    const list = document.getElementById('bus-list');
+    list.innerHTML = upcomingBuses.slice(1, 4).map(t => `
+        <div class="flex justify-between items-center px-4 py-3 rounded-xl border-l-4 bg-white opacity-60" style="border-left-color: ${t.color}">
+            <span class="text-sm font-bold text-gray-700">${t.dest}</span>
+            <span class="font-black text-lg text-gray-600">${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}</span>
+        </div>
+    `).join('');
+}
+
+function updateDisplay() {
+    const now = new Date();
+    const clock = document.getElementById('current-clock');
+    if (clock) clock.innerText = now.toLocaleTimeString();
+
+    if (upcomingBuses.length === 0) return;
+    
+    const diff = new Date(upcomingBuses[0].timeStr) - now;
+    const m = Math.max(0, Math.floor(diff / 60000));
+    const s = Math.max(0, Math.floor((diff % 60000) / 1000));
+
+    document.getElementById('min').innerText = String(m).padStart(2, '0');
+    document.getElementById('sec').innerText = String(s).padStart(2, '0');
+    document.getElementById('bus-route-label').innerText = upcomingBuses[0].route;
+    document.getElementById('bus-dest-label').innerText = upcomingBuses[0].dest + " 行き";
+
+    if (diff <= 0) fetchBusData();
+}
+
+fetchBusData();
+setInterval(fetchBusData, 30000);
+setInterval(updateDisplay, 1000);
+lucide.createIcons();
